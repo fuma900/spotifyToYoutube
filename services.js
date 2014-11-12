@@ -39,12 +39,13 @@ services.service('Youtube', ['$q', '$window', 'Helper', function($q, $window, He
         return deferred.promise;
     }
 
-    this.createPlaylist = function() {
+    this.createPlaylist = function(playlistName) {
+    	var deferred = $q.defer();
     	var request = gapi.client.youtube.playlists.insert({
     		part: 'snippet,status',
     		resource: {
     			snippet: {
-    				title: 'Test Playlist',
+    				title: playlistName,
     				description: 'A private playlist created with the YouTube API'
     			},
     			status: {
@@ -55,11 +56,33 @@ services.service('Youtube', ['$q', '$window', 'Helper', function($q, $window, He
     	request.execute(function(response) {
     		var result = response.result;
     		if (result) {
-    			playlistId = result.id;
+    			deferred.resolve(result);
     		} else {
-				return false;    	
+				deferred.resolve(false);
     		}
     	});
+    	return deferred.promise;
+    };
+
+    this.addVideoToPlaylist = function(videoId, playlistId) {
+    	var deferred = $q.defer();
+    	var details = {
+    		videoId: id,
+    		kind: 'youtube#video'
+    	}
+    	var request = gapi.client.youtube.playlistItems.insert({
+    		part: 'snippet',
+    		resource: {
+    			snippet: {
+    				playlistId: playlistId,
+    				resourceId: details
+    			}
+    		}
+    	});
+    	request.execute(function(response) {
+    		deferred.resolve(result);
+    	});
+    	return deferred.promise;
     };
 
 	this.loadApi = function(callback) {
@@ -84,7 +107,7 @@ services.service('Youtube', ['$q', '$window', 'Helper', function($q, $window, He
 			var q = track.artists + " " + track.name;
 			var request = gapi.client.youtube.search.list({
 				q: q,
-				part: 'snippet'
+				part: 'id'
 			});
 			request.then(function(response) {
 				deferred.resolve(response);
@@ -173,9 +196,10 @@ services.service('Helper', ['$q', function($q) {
 				}
 				artists = artists.join(', ');
 				temp.push({
-					'album': 	tracks[i].album,
-					'artists': 	artists,
-					'name': 	tracks[i].name,
+					'album': 		tracks[i].album,
+					'artists': 		artists,
+					'name': 		tracks[i].name,
+					'spotifyUrl': 	tracks[i].external_urls.spotify,
 				});
 			}
 		}
@@ -217,7 +241,7 @@ services.directive('youtube', ['$window', function($window) {
 
         player = new YT.Player(element.children()[0], {
           playerVars: {
-            autoplay: 0,
+            autoplay: 1,
             html5: 1,
             theme: "light",
             modesbranding: 1,
@@ -234,12 +258,12 @@ services.directive('youtube', ['$window', function($window) {
       }
 
       scope.$watch('videoid', function(newValue, oldValue) {
-        if (newValue == oldValue) {
+        if (newValue == oldValue || newValue === '' || newValue === []) {
           return;
         }
 
         console.log(newValue);
-        player.cuePlaylist({
+        player.loadPlaylist({
         	playlist: scope.videoid,
         });
 
